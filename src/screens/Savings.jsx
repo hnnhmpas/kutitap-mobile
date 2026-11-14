@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFinance } from '../store';
-import { MONTHS, num, peso, savingsTotals, goalSaved, parseMonthKey, droppedPaidMonths } from '../finance';
+import { MONTHS, num, peso, savingsTotals, goalSaved, parseMonthKey, droppedPaidMonths, validAmount } from '../finance';
 import { Sprite, Bar, MoneyInput, PaidToggle, Sheet, Field, MonthYearSelect, IconButton, useToast } from '../components/ui';
 import { IconPlus, IconPencil, IconTrash, IconDown } from '../icons';
 import spPudding from '../assets/pixel/pudding.png';
@@ -15,6 +15,7 @@ export default function Savings({ ask }) {
   const [form, setForm] = useState(null); // null = closed; { id: null } = new goal
   const [err, setErr] = useState('');
   const [open, setOpen] = useState({});
+  const busy = useRef(false); // a quick double tap on Create must not add the goal twice
   const sv = savingsTotals(d.savings);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
@@ -23,11 +24,19 @@ export default function Savings({ ask }) {
     setErr(''); setForm({ id: g.id, name: g.name, amount: String(g.goalAmount ?? ''), sm: a.mi, sy: a.y, em: b.mi, ey: b.y });
   };
   const save = () => {
-    if (!form.name.trim() || !num(form.amount)) { setErr('Please enter a goal name and amount.'); return; }
-    if (form.id === null) { d.addGoal(form); setForm(null); toast('Savings Goal Added'); return; }
+    if (busy.current) return;
+    if (!form.name.trim() || !validAmount(form.amount)) { setErr('Please enter a goal name and an amount above 0.'); return; }
+    if (form.ey * 12 + form.em < form.sy * 12 + form.sm) { setErr('The end month must be the same as or after the start month.'); return; }
+    if (form.id === null) {
+      busy.current = true;
+      if (d.addGoal(form)) toast('Savings Goal Added');
+      setForm(null);
+      setTimeout(() => { busy.current = false; }, 400);
+      return;
+    }
     const goal = d.savings.find((g) => g.id === form.id);
     const dropped = goal ? droppedPaidMonths(goal, form.sm, form.sy, form.em, form.ey) : 0;
-    const apply = () => { d.editGoal(form.id, form); setForm(null); toast('Savings Goal Updated'); };
+    const apply = () => { if (d.editGoal(form.id, form)) toast('Savings Goal Updated'); setForm(null); };
     if (dropped > 0) ask(`${dropped} month(s) already marked Paid fall outside the new dates and will be removed from this goal. Continue?`, apply, 'Continue');
     else apply();
   };
@@ -107,8 +116,8 @@ export default function Savings({ ask }) {
         footer={form && <button type="button" className="btn btn-pink btn-block" onClick={save}>{form.id !== null ? 'Save changes' : 'Create goal'}</button>}>
         {form && (
           <>
-            <Field label="Goal name"><input className="text-input" type="text" placeholder="e.g. New laptop" value={form.name} onChange={(e) => set({ name: e.target.value })} /></Field>
-            <Field label="Goal amount"><MoneyInput value={form.amount} onChange={(v) => set({ amount: v })} label="Goal amount" placeholder="e.g. 45000" /></Field>
+            <Field label="Goal name"><input className="text-input" type="text" enterKeyHint="next" autoCapitalize="sentences" autoComplete="off" placeholder="e.g. New laptop" value={form.name} onChange={(e) => { set({ name: e.target.value }); setErr(''); }} /></Field>
+            <Field label="Goal amount"><MoneyInput value={form.amount} onChange={(v) => { set({ amount: v }); setErr(''); }} label="Goal amount" placeholder="e.g. 45000" /></Field>
             <MonthYearSelect label="Start" month={form.sm} year={form.sy} onMonth={(v) => set({ sm: v })} onYear={(v) => set({ sy: v })} />
             <MonthYearSelect label="End" month={form.em} year={form.ey} onMonth={(v) => set({ em: v })} onYear={(v) => set({ ey: v })} />
             {form.id !== null && <div className="note">Changing the amount or dates re-spreads the goal over the months not yet marked Paid. Paid months keep their amounts.</div>}

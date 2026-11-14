@@ -4,7 +4,7 @@ import { auth } from './firebase';
 import { FinanceProvider, useFinance } from './store';
 import { initFx, soundOn, setSound } from './fx';
 import { USER_NAME } from './config';
-import { Sheet, Sprite, Confirm, ToastProvider } from './components/ui';
+import { Sheet, Sprite, Confirm, ToastProvider, useKeyboard } from './components/ui';
 import { IconLogout, IconSound, IconMute, IconCloud, IconCloudOff } from './icons';
 import Dashboard from './screens/Dashboard';
 import Money from './screens/Money';
@@ -24,26 +24,6 @@ const TABS = [
   { id: 'savings', label: 'Savings', sprite: spPudding },
 ];
 const now = new Date();
-
-// keeps the app the size of what is visible when the iPhone keyboard is open, and hides the tab bar while typing.
-// --vv-h / --vv-t always hold the visible area (height + top offset) so sheets and pop-ups sit above the keyboard.
-function useKeyboard() {
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return undefined;
-    const root = document.documentElement;
-    const on = () => {
-      const open = window.innerHeight - vv.height > 120;
-      root.classList.toggle('kb-open', open);
-      root.style.setProperty('--vv-h', `${Math.round(vv.height)}px`);
-      root.style.setProperty('--vv-t', `${Math.round(vv.offsetTop)}px`);
-      if (open) { root.style.setProperty('--vvh', `${vv.height}px`); window.scrollTo(0, 0); } else root.style.removeProperty('--vvh');
-    };
-    on();
-    vv.addEventListener('resize', on); vv.addEventListener('scroll', on);
-    return () => { vv.removeEventListener('resize', on); vv.removeEventListener('scroll', on); };
-  }, []);
-}
 
 function Shell() {
   const { ready, status } = useFinance();
@@ -106,5 +86,6 @@ function Shell() {
 }
 
 export default function App() {
-  return <FinanceProvider><ToastProvider><Shell /></ToastProvider></FinanceProvider>;
+  // ToastProvider is outside FinanceProvider so the store can tell you when a save was refused
+  return <ToastProvider><FinanceProvider><Shell /></FinanceProvider></ToastProvider>;
 }

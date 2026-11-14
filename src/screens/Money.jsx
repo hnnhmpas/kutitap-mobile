@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFinance } from '../store';
-import { MONTHS, monthKey, stepMonth, num, peso, cutoffSummary, cutoffDay } from '../finance';
+import { MONTHS, monthKey, stepMonth, num, peso, cutoffSummary, cutoffDay, validAmount } from '../finance';
 import { Sprite, MonthStepper, MonthSheet, MoneyInput, PaidToggle, IconButton, Sheet, Field, useToast } from '../components/ui';
 import { IconPlus, IconTrash, IconRight } from '../icons';
 import spBunny from '../assets/pixel/bunny.png';
@@ -13,6 +13,7 @@ export default function Money({ period, setPeriod, ask, go }) {
   const [newCat, setNewCat] = useState('');
   const [newAmt, setNewAmt] = useState('');
   const [err, setErr] = useState('');
+  const busy = useRef(false); // a quick double tap on Save must not add the same expense twice
 
   const mk = monthKey(period.mi, period.y);
   const month = MONTHS[period.mi];
@@ -40,10 +41,12 @@ export default function Money({ period, setPeriod, ask, go }) {
 
   const openAdd = () => { setNewCat(''); setNewAmt(''); setErr(''); setAdding(true); };
   const saveExpense = () => {
-    if (!(num(newAmt) > 0)) { setErr('Please enter an amount.'); return; }
-    d.addExpense(mk, newCat || 'Expense', newAmt);
+    if (busy.current) return;
+    if (!validAmount(newAmt)) { setErr('Please enter an amount above 0.'); return; }
+    busy.current = true;
+    if (d.addExpense(mk, newCat || 'Expense', newAmt)) toast('Expense Added');
     setAdding(false);
-    toast('Expense Added');
+    setTimeout(() => { busy.current = false; }, 400);
   };
 
   return (

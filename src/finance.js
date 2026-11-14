@@ -3,7 +3,17 @@ import { LOAN_CATEGORIES } from './config';
 
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const monthKey = (mi, y) => `${MONTHS[mi]}-${y}`;
-export const num = (v) => parseFloat(v) || 0;
+export const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+// what a money box may hold: digits and one dot, at most 2 decimals. Commas, minus, "e", letters are dropped (also from pasted text).
+export const cleanAmount = (v) => {
+  let s = String(v == null ? '' : v).replace(/[^0-9.]/g, '');
+  const i = s.indexOf('.');
+  if (i !== -1) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, '').slice(0, 2);
+  return s.slice(0, 12);
+};
+// an amount may only be saved when it is a real number above zero
+export const validAmount = (v) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 && n < 1e12; };
+export const newId = () => Date.now() * 1000 + Math.floor(Math.random() * 1000);
 const fmt = (n) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 export const peso = (n) => (n < 0 ? `-₱${fmt(Math.abs(n))}` : `₱${fmt(n)}`);
 export const shown = (v) => (v === 0 || v === '0' || v == null ? '' : v); // blank instead of 0 in inputs
@@ -86,7 +96,7 @@ export const buildGoal = ({ name, amount, sm, sy, em, ey }) => {
   const keys = monthRange(sm, sy, em, ey);
   const each = Math.round(total / keys.length);
   return {
-    id: Date.now(), name: name.trim(), goalAmount: total,
+    id: newId(), name: name.trim(), goalAmount: total,
     startMonth: MONTHS[sm], startYear: sy, endMonth: MONTHS[em], endYear: ey,
     monthsList: keys.map((k, i) => ({ monthKey: k, amount: i === keys.length - 1 ? total - each * (keys.length - 1) : each, paid: false }))
   };

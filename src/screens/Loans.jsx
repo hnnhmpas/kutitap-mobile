@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFinance } from '../store';
 import { LOAN_CATEGORIES, loanLabel } from '../config';
 import { MONTHS, stepMonth, rowKey, rowAmounts, cutoffSummary, yearLoanTotals, cutoffDay, peso, num } from '../finance';
@@ -13,6 +13,7 @@ export default function Loans({ period, setPeriod, ask }) {
   const [items, setItems] = useState(false);
   const [newItem, setNewItem] = useState('');
   const [yearOpen, setYearOpen] = useState(false);
+  const itemRef = useRef(null);
 
   const month = MONTHS[period.mi];
   const catData = d.loanCat(cat);
@@ -23,11 +24,12 @@ export default function Loans({ period, setPeriod, ask }) {
   const cutoffs = [{ id: '15th', label: `${month.slice(0, 3)} 15` }, { id: '30th', label: `${month.slice(0, 3)} ${last}` }];
 
   const addItem = () => {
-    const n = newItem.trim();
-    if (!n) return;
-    if (catData.columns.includes(n)) { toast('That item already exists', 'warn'); return; }
-    d.addLoanColumn(cat, n); setNewItem('');
+    const res = d.addLoanColumn(cat, newItem);
+    if (res === 'empty') { toast('Type an item name first', 'warn'); if (itemRef.current) itemRef.current.focus(); return; }
+    if (res === 'exists') { toast('That item already exists', 'warn'); return; }
+    setNewItem('');
     toast('Item Added');
+    if (itemRef.current) itemRef.current.focus(); // stay in the box so another item can be typed straight away
   };
 
   const Summary = ({ label, s }) => (
@@ -129,19 +131,22 @@ export default function Loans({ period, setPeriod, ask }) {
       <Sheet open={items} title={`${loanLabel(cat)} items`} onClose={() => setItems(false)}
         footer={(
           <div className="add-line">
-            <input className="text-input" type="text" placeholder="New item, e.g. Gadget" value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addItem()} />
-            <button type="button" className="btn btn-pink" onClick={addItem}>Add</button>
+            <input ref={itemRef} className="text-input" type="text" inputMode="text" enterKeyHint="done" autoCapitalize="words" autoComplete="off" autoCorrect="off" maxLength={30}
+              aria-label="New item name" placeholder="New item, e.g. Gadget" value={newItem} onChange={(e) => setNewItem(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }} />
+            <button type="button" className="btn btn-pink btn-block" onPointerDown={(e) => e.preventDefault()} onClick={addItem}><IconPlus size={16} /> Add</button>
           </div>
         )}>
-        <div className="list">
-          {catData.columns.map((col) => (
-            <div className="item-row" key={col}>
-              <span className="row-name">{col}</span>
-              <IconButton label={`Delete ${col}`} tone="danger" onClick={() => ask(`Delete item "${col}" and its amounts?`, () => { d.deleteLoanColumn(cat, col); toast('Item Deleted'); })}><IconTrash size={18} /></IconButton>
-            </div>
-          ))}
-          {catData.columns.length === 0 && <div className="note">No items yet. Add one below.</div>}
-        </div>
+        {catData.columns.length > 0 && (
+          <div className="list">
+            {catData.columns.map((col) => (
+              <div className="item-row" key={col}>
+                <span className="row-name">{col}</span>
+                <IconButton label={`Delete ${col}`} tone="danger" onClick={() => ask(`Delete item "${col}" and its amounts?`, () => { d.deleteLoanColumn(cat, col); toast('Item Deleted'); })}><IconTrash size={18} /></IconButton>
+              </div>
+            ))}
+          </div>
+        )}
       </Sheet>
     </div>
   );
