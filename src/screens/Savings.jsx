@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFinance } from '../store';
 import { MONTHS, num, peso, savingsTotals, goalSaved, parseMonthKey, droppedPaidMonths } from '../finance';
-import { Sprite, Bar, MoneyInput, PaidToggle, Sheet, Field, MonthYearSelect, IconButton } from '../components/ui';
+import { Sprite, Bar, MoneyInput, PaidToggle, Sheet, Field, MonthYearSelect, IconButton, useToast } from '../components/ui';
 import { IconPlus, IconPencil, IconTrash, IconDown } from '../icons';
 import spPudding from '../assets/pixel/pudding.png';
 import spBunny from '../assets/pixel/bunny.png';
@@ -11,6 +11,7 @@ const blank = () => ({ id: null, name: '', amount: '', sm: today.getMonth(), sy:
 
 export default function Savings({ ask }) {
   const d = useFinance();
+  const toast = useToast();
   const [form, setForm] = useState(null); // null = closed; { id: null } = new goal
   const [err, setErr] = useState('');
   const [open, setOpen] = useState({});
@@ -23,14 +24,12 @@ export default function Savings({ ask }) {
   };
   const save = () => {
     if (!form.name.trim() || !num(form.amount)) { setErr('Please enter a goal name and amount.'); return; }
-    if (form.id === null) d.addGoal(form);
-    else {
-      const goal = d.savings.find((g) => g.id === form.id);
-      const dropped = goal ? droppedPaidMonths(goal, form.sm, form.sy, form.em, form.ey) : 0;
-      if (dropped > 0 && !window.confirm(`${dropped} month(s) already marked Paid fall outside the new dates and will be removed from this goal. Continue?`)) return;
-      d.editGoal(form.id, form);
-    }
-    setForm(null);
+    if (form.id === null) { d.addGoal(form); setForm(null); toast('Savings Goal Added'); return; }
+    const goal = d.savings.find((g) => g.id === form.id);
+    const dropped = goal ? droppedPaidMonths(goal, form.sm, form.sy, form.em, form.ey) : 0;
+    const apply = () => { d.editGoal(form.id, form); setForm(null); toast('Savings Goal Updated'); };
+    if (dropped > 0) ask(`${dropped} month(s) already marked Paid fall outside the new dates and will be removed from this goal. Continue?`, apply, 'Continue');
+    else apply();
   };
 
   return (
@@ -42,7 +41,7 @@ export default function Savings({ ask }) {
             <p className="note" style={{ marginTop: 4 }}>Set goals and track your monthly savings.</p>
           </div>
         </div>
-        <button type="button" className="btn btn-pink btn-block" onClick={() => { setErr(''); setForm(blank()); }}><IconPlus size={14} /> Add savings goal</button>
+        <button type="button" className="btn btn-pink btn-block" onClick={() => { setErr(''); setForm(blank()); }}><IconPlus size={16} /> Add savings goal</button>
         <div className="grid2">
           <div className="tile"><div className="tile-label">Total goal</div><div className="tile-val">{peso(sv.target)}</div></div>
           <div className="tile mint"><div className="tile-label green">Total saved</div><div className="tile-val green">{peso(sv.saved)}</div><div className="tile-sub green">{sv.pct}%</div></div>
@@ -68,8 +67,8 @@ export default function Savings({ ask }) {
                 <div className="note">{g.monthsList[0]?.monthKey || 'N/A'} → {g.monthsList[g.monthsList.length - 1]?.monthKey || 'N/A'}</div>
               </div>
               <div className="goal-actions">
-                <IconButton label={`Edit ${g.name}`} onClick={() => openEdit(g)}><IconPencil size={16} /></IconButton>
-                <IconButton label={`Delete ${g.name}`} tone="danger" onClick={() => ask('Delete this savings goal?', () => d.deleteGoal(g.id))}><IconTrash size={16} /></IconButton>
+                <IconButton label={`Edit ${g.name}`} onClick={() => openEdit(g)}><IconPencil size={18} /></IconButton>
+                <IconButton label={`Delete ${g.name}`} tone="danger" onClick={() => ask('Delete this savings goal?', () => { d.deleteGoal(g.id); toast('Savings Goal Deleted'); })}><IconTrash size={18} /></IconButton>
               </div>
             </div>
             <div className="grid3 goal-stats">
@@ -104,7 +103,8 @@ export default function Savings({ ask }) {
         );
       })}
 
-      <Sheet open={!!form} title={form && form.id !== null ? 'Edit savings goal' : 'Add savings goal'} onClose={() => setForm(null)}>
+      <Sheet open={!!form} title={form && form.id !== null ? 'Edit savings goal' : 'Add savings goal'} onClose={() => setForm(null)}
+        footer={form && <button type="button" className="btn btn-pink btn-block" onClick={save}>{form.id !== null ? 'Save changes' : 'Create goal'}</button>}>
         {form && (
           <>
             <Field label="Goal name"><input className="text-input" type="text" placeholder="e.g. New laptop" value={form.name} onChange={(e) => set({ name: e.target.value })} /></Field>
@@ -113,7 +113,6 @@ export default function Savings({ ask }) {
             <MonthYearSelect label="End" month={form.em} year={form.ey} onMonth={(v) => set({ em: v })} onYear={(v) => set({ ey: v })} />
             {form.id !== null && <div className="note">Changing the amount or dates re-spreads the goal over the months not yet marked Paid. Paid months keep their amounts.</div>}
             {err && <div className="form-err" role="alert">{err}</div>}
-            <button type="button" className="btn btn-pink btn-block" onClick={save}>{form.id !== null ? 'Save changes' : 'Create goal'}</button>
           </>
         )}
       </Sheet>

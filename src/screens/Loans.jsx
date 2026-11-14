@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useFinance } from '../store';
 import { LOAN_CATEGORIES, loanLabel } from '../config';
 import { MONTHS, stepMonth, rowKey, rowAmounts, cutoffSummary, yearLoanTotals, cutoffDay, peso, num } from '../finance';
-import { MonthStepper, MonthSheet, MoneyInput, Sheet, IconButton } from '../components/ui';
+import { MonthStepper, MonthSheet, MoneyInput, Sheet, IconButton, useToast } from '../components/ui';
 import { IconCheck, IconPlus, IconTrash, IconDown } from '../icons';
 
 export default function Loans({ period, setPeriod, ask }) {
   const d = useFinance();
+  const toast = useToast();
   const [cat, setCat] = useState(LOAN_CATEGORIES[0]);
   const [pick, setPick] = useState(false);
   const [items, setItems] = useState(false);
@@ -24,7 +25,9 @@ export default function Loans({ period, setPeriod, ask }) {
   const addItem = () => {
     const n = newItem.trim();
     if (!n) return;
+    if (catData.columns.includes(n)) { toast('That item already exists', 'warn'); return; }
     d.addLoanColumn(cat, n); setNewItem('');
+    toast('Item Added');
   };
 
   const Summary = ({ label, s }) => (
@@ -72,7 +75,7 @@ export default function Loans({ period, setPeriod, ask }) {
       <section className="panel">
         <div className="panel-title kutitap-title">
           <span>{loanLabel(cat)}</span>
-          <button type="button" className="btn btn-soft btn-sm" onClick={() => setItems(true)}><IconPlus size={12} /> Items</button>
+          <button type="button" className="btn btn-soft btn-sm" onClick={() => setItems(true)}><IconPlus size={14} /> Items</button>
         </div>
         <div className="note">Type an amount, then tap the box next to it to mark it paid.</div>
 
@@ -123,19 +126,21 @@ export default function Loans({ period, setPeriod, ask }) {
       </section>
 
       <MonthSheet open={pick} value={period} onPick={setPeriod} onClose={() => setPick(false)} />
-      <Sheet open={items} title={`${loanLabel(cat)} items`} onClose={() => setItems(false)}>
+      <Sheet open={items} title={`${loanLabel(cat)} items`} onClose={() => setItems(false)}
+        footer={(
+          <div className="add-line">
+            <input className="text-input" type="text" placeholder="New item, e.g. Gadget" value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addItem()} />
+            <button type="button" className="btn btn-pink" onClick={addItem}>Add</button>
+          </div>
+        )}>
         <div className="list">
           {catData.columns.map((col) => (
             <div className="item-row" key={col}>
               <span className="row-name">{col}</span>
-              <IconButton label={`Delete ${col}`} tone="danger" onClick={() => ask(`Delete item "${col}" and its amounts?`, () => d.deleteLoanColumn(cat, col))}><IconTrash size={16} /></IconButton>
+              <IconButton label={`Delete ${col}`} tone="danger" onClick={() => ask(`Delete item "${col}" and its amounts?`, () => { d.deleteLoanColumn(cat, col); toast('Item Deleted'); })}><IconTrash size={18} /></IconButton>
             </div>
           ))}
-          {catData.columns.length === 0 && <div className="note">No items yet.</div>}
-        </div>
-        <div className="add-line">
-          <input className="text-input" type="text" placeholder="New item, e.g. Gadget" value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addItem()} />
-          <button type="button" className="btn btn-pink" onClick={addItem}>Add</button>
+          {catData.columns.length === 0 && <div className="note">No items yet. Add one below.</div>}
         </div>
       </Sheet>
     </div>

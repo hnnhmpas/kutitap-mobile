@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { IconLeft, IconRight, IconDown, IconX, IconCheck, IconTrash } from '../icons';
 import { MONTHS, shown } from '../finance';
 import { YEARS } from '../config';
@@ -26,7 +26,7 @@ export function MoneyInput({ value, onChange, label, big = false, className = ''
     <label className={`money ${big ? 'money-big' : ''} ${className}`}>
       <span className="money-sign">₱</span>
       <input type="number" inputMode="decimal" step="any" min="0" placeholder={placeholder} aria-label={label}
-        value={shown(value)} onChange={(e) => onChange(e.target.value)} onFocus={(e) => e.target.select()} />
+        value={shown(value)} onChange={(e) => onChange(e.target.value.replace(/^-+/, ''))} onFocus={(e) => e.target.select()} />
     </label>
   );
 }
@@ -67,24 +67,90 @@ export function YearStepper({ value, onChange }) {
   );
 }
 
+// ---- toasts: small "saved" messages ----
+const ToastCtx = createContext(() => {});
+export const useToast = () => useContext(ToastCtx);
+export function ToastProvider({ children }) {
+  const [list, setList] = useState([]);
+  const toast = useCallback((message, tone = 'ok') => {
+    const id = Date.now() + Math.random();
+    setList((l) => [...l.slice(-1), { id, message, tone }]);
+    setTimeout(() => setList((l) => l.filter((t) => t.id !== id)), 2200);
+  }, []);
+  return (
+    <ToastCtx.Provider value={toast}>
+      {children}
+      <div className="toasts" role="status" aria-live="polite">
+        {list.map((t) => <div key={t.id} className={`toast ${t.tone}`}><IconCheck size={16} />{t.message}</div>)}
+      </div>
+    </ToastCtx.Provider>
+  );
+}
+
 // ---- bottom sheet ----
-export function Sheet({ open, title, onClose, children }) {
+// - sits on the VISIBLE part of the screen (above the iPhone keyboard) because .backdrop follows the visual viewport
+// - the title bar and the footer (Save button) never scroll away; only the middle scrolls
+// - the pull bar: drag up = full height, drag down = back to fit (or close), tap = toggle full height
+export function Sheet({ open, title, onClose, children, footer }) {
+  const [full, setFull] = useState(false);
+  const [drag, setDrag] = useState(null); // px height while the finger is on the bar
+  const sheetRef = useRef(null);
+  const gesture = useRef(null);
+
+  useEffect(() => { if (open) { setFull(false); setDrag(null); } }, [open]);
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // when the keyboard opens, keep the box you tapped in view inside the sheet
+  const onFocus = (e) => {
+    const el = e.target;
+    if (!el || !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+    [250, 600].forEach((ms) => setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {} }, ms));
+  };
+
+  const maxH = () => Math.max(220, (window.visualViewport ? window.visualViewport.height : window.innerHeight) - 36);
+  const down = (e) => {
+    const h = sheetRef.current ? sheetRef.current.offsetHeight : 0;
+    gesture.current = { y: e.clientY, h, moved: false, id: e.pointerId };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+  };
+  const move = (e) => {
+    const g = gesture.current;
+    if (!g) return;
+    const dy = e.clientY - g.y;
+    if (Math.abs(dy) > 4) g.moved = true;
+    if (g.moved) setDrag(Math.max(120, Math.min(maxH(), g.h - dy)));
+  };
+  const up = (e) => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g) return;
+    const dy = e.clientY - g.y;
+    setDrag(null);
+    if (!g.moved) { setFull((f) => !f); return; } // a tap
+    if (dy < -40) setFull(true);                    // pulled up
+    else if (dy > 110 && !full) onClose();          // pulled down from normal size: dismiss
+    else if (dy > 40) setFull(false);               // pulled down a little: back to fit
+  };
+
   if (!open) return null;
   return (
     <div className="backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-grab" aria-hidden="true" />
+      <div ref={sheetRef} className={`sheet ${full ? 'full' : ''} ${drag !== null ? 'dragging' : ''}`} style={drag !== null ? { height: drag, maxHeight: 'none' } : undefined}
+        role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()} onFocus={onFocus}>
+        <div className="sheet-grab" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { gesture.current = null; setDrag(null); }} role="button" aria-label={full ? 'Shrink' : 'Pull up'}>
+          <span />
+        </div>
         <div className="sheet-head">
           <div className="kutitap-title sheet-title">{title}</div>
-          <IconButton label="Close" onClick={onClose}><IconX size={14} /></IconButton>
+          <IconButton label="Close" onClick={onClose}><IconX size={18} /></IconButton>
         </div>
         <div className="sheet-body">{children}</div>
+        {footer && <div className="sheet-foot">{footer}</div>}
       </div>
     </div>
   );
@@ -115,7 +181,7 @@ export function Confirm({ ask, onClose }) {
         <p>{ask.message}</p>
         <div className="dialog-btns">
           <button type="button" className="btn btn-soft" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-pink" onClick={() => { const f = ask.onYes; onClose(); f(); }}>Delete</button>
+          <button type="button" className="btn btn-pink" onClick={() => { const f = ask.onYes; onClose(); f(); }}>{ask.yes || 'Delete'}</button>
         </div>
       </div>
     </div>

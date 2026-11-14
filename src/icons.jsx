@@ -1,19 +1,24 @@
-// Small pixel-style icons (crisp edges, inherit text colour).
+// Icons: Lucide glyphs (https://lucide.dev, ISC licence), inlined so no extra package is needed.
+// Same export names as before, so every screen keeps working. Thick, square-capped strokes match the pixel theme.
 import React from 'react';
 
-const make = (paths, w = 9, h = 9) => ({ size = 18, ...rest }) => (
-  <svg viewBox={`0 0 ${w} ${h}`} width={size} height={Math.round((size * h) / w)} shapeRendering="crispEdges" fill="currentColor" aria-hidden="true" {...rest}>{paths}</svg>
+const lucide = (children) => ({ size = 18, strokeWidth = 2.75, ...rest }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={strokeWidth}
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...rest}>{children}</svg>
 );
 
-export const IconLeft = make(<path d="M5 0h2v1H6v1H5zM4 2h1v1H4zM3 3h1v1H3zM2 4h1v1H2zM3 5h1v1H3zM4 6h1v1H4zM5 7h1v1H5zM6 8h1v1H6z" transform="translate(0 0)" />, 9, 9);
-export const IconRight = make(<path d="M2 0h2v1h1v1h1v1h1v1h1v1H7v1H6v1H5v1H4v1H2V8h1V7h1V6h1V5h1V4H5V3H4V2H3V1H2z" />, 9, 9);
-export const IconDown = make(<path d="M0 2h2v1h1v1h3V3h1V2h2v1H8v1H7v1H6v1H5v1H4V6H3V5H2V4H1V3H0z" />, 9, 9);
-export const IconPlus = make(<path d="M4 0h1v4h4v1H5v4H4V5H0V4h4z" />, 9, 9);
-export const IconX = make(<path d="M1 1h1v1h1v1h1v1h1V3h1V2h1V1h1v1H8v1H7v1H6v1h1v1h1v1h1v1H8V8H7V7H6V6H5v1H4v1H3v1H2V8h1V7h1V6H3V5H2V4H1V3H0V2h1z" />, 10, 10);
-export const IconCheck = make(<path d="M8 1h2v1H9v1H8v1H7v1H6v1H5v1H4v1H3v1H2V8H1V7H0V5h1v1h1v1h1V6h1V5h1V4h1V3h1V2h1z" />, 10, 9);
-export const IconTrash = make(<path d="M3 0h4v1h3v1H0V1h3zM1 3h8v7H1zM3 4v5h1V4zm3 0v5h1V4z" fillRule="evenodd" />, 10, 10);
-export const IconPencil = make(<path d="M7 0h2v1h1v2H9v1H8V3H7V2H6V1h1zM5 2h1v1h1v1h1v1H7v1H6v1H5v1H4v1H3v1H0V9h1V8h1V7h1V6h1V5h1V4h1V3H5z" />, 10, 10);
-export const IconLogout = make(<path d="M0 0h5v1H1v8h4v1H0zM6 2h1v1h1v1h2v2H8v1H7v1H6V6H3V4h3z" />, 10, 10);
-export const IconSound = make(<path d="M3 2h1v1h1v4H4v1H3V7H0V3h3zM7 1h1v1h1v6H8V7H7zM6 3h1v4H6z" />, 9, 9);
-export const IconMute = make(<path d="M3 2h1v1h1v4H4v1H3V7H0V3h3zM6 3h1v1h1v1h1V3h1v1H9v1h1v1H9v1H8V6H7v1H6V6h1V5H6V4z" />, 10, 9);
-export const IconCloud = make(<path d="M3 1h3v1h1v1h2v1h1v2H9v1H2V6H1V4h1V2h1z" />, 10, 8);
+const speaker = 'M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z';
+
+export const IconLeft = lucide(<path d="m15 18-6-6 6-6" />);
+export const IconRight = lucide(<path d="m9 18 6-6-6-6" />);
+export const IconDown = lucide(<path d="m6 9 6 6 6-6" />);
+export const IconPlus = lucide(<><path d="M5 12h14" /><path d="M12 5v14" /></>);
+export const IconX = lucide(<><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>);
+export const IconCheck = lucide(<path d="M20 6 9 17l-5-5" />);
+export const IconTrash = lucide(<><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></>);
+export const IconPencil = lucide(<><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></>);
+export const IconLogout = lucide(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></>);
+export const IconSound = lucide(<><path d={speaker} /><path d="M16 9a5 5 0 0 1 0 6" /><path d="M19.364 18.364a9 9 0 0 0 0-12.728" /></>);
+export const IconMute = lucide(<><path d={speaker} /><line x1="22" x2="16" y1="9" y2="15" /><line x1="16" x2="22" y1="9" y2="15" /></>);
+export const IconCloud = lucide(<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />);
+export const IconCloudOff = lucide(<><path d="m2 2 20 20" /><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193" /><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07" /></>);

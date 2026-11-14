@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFinance } from '../store';
 import { USER_NAME } from '../config';
 import { annualIncome, annualDues, yearLoanTotals, savingsTotals, peso } from '../finance';
@@ -21,7 +21,14 @@ export default function Dashboard() {
   const left = income - dues;
   const pctOfIncome = (v) => (income > 0 ? Math.round((v / income) * 100) : 0);
 
-  const h = new Date().getHours();
+  // the greeting follows the clock: re-checked every minute and when the app comes back to the screen
+  const [h, setH] = useState(new Date().getHours());
+  useEffect(() => {
+    const tick = () => setH(new Date().getHours());
+    const t = setInterval(tick, 60000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick); };
+  }, []);
   const greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 
   const rows = [

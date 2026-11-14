@@ -4,8 +4,8 @@ import { auth } from './firebase';
 import { FinanceProvider, useFinance } from './store';
 import { initFx, soundOn, setSound } from './fx';
 import { USER_NAME } from './config';
-import { Sheet, Sprite, Confirm } from './components/ui';
-import { IconLogout, IconSound, IconMute, IconCloud } from './icons';
+import { Sheet, Sprite, Confirm, ToastProvider } from './components/ui';
+import { IconLogout, IconSound, IconMute, IconCloud, IconCloudOff } from './icons';
 import Dashboard from './screens/Dashboard';
 import Money from './screens/Money';
 import Loans from './screens/Loans';
@@ -25,17 +25,21 @@ const TABS = [
 ];
 const now = new Date();
 
-// keeps the app the size of what is visible when the iPhone keyboard is open, and hides the tab bar while typing
+// keeps the app the size of what is visible when the iPhone keyboard is open, and hides the tab bar while typing.
+// --vv-h / --vv-t always hold the visible area (height + top offset) so sheets and pop-ups sit above the keyboard.
 function useKeyboard() {
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return undefined;
+    const root = document.documentElement;
     const on = () => {
       const open = window.innerHeight - vv.height > 120;
-      const root = document.documentElement;
       root.classList.toggle('kb-open', open);
+      root.style.setProperty('--vv-h', `${Math.round(vv.height)}px`);
+      root.style.setProperty('--vv-t', `${Math.round(vv.offsetTop)}px`);
       if (open) { root.style.setProperty('--vvh', `${vv.height}px`); window.scrollTo(0, 0); } else root.style.removeProperty('--vvh');
     };
+    on();
     vv.addEventListener('resize', on); vv.addEventListener('scroll', on);
     return () => { vv.removeEventListener('resize', on); vv.removeEventListener('scroll', on); };
   }, []);
@@ -57,7 +61,7 @@ function Shell() {
 
   if (!ready) return <div className="splash"><Sprite src={spFlower} /><p>Loading your<br />tracker...</p></div>;
 
-  const ask = (message, onYes) => setConfirm({ message, onYes });
+  const ask = (message, onYes, yes) => setConfirm({ message, onYes, yes });
   const go = (id) => setTab(id);
   const common = { period, setPeriod, ask, go };
 
@@ -66,7 +70,7 @@ function Shell() {
       <header className="topbar">
         <div className="brand"><Sprite src={spFlower} /><span>Kutitap</span></div>
         <div className="top-actions">
-          <span className={`sync-dot ${status}`} title={status === 'synced' ? 'Synced to the cloud' : 'Offline: saved on this phone'} aria-label={status === 'synced' ? 'Synced' : 'Offline'}><IconCloud size={20} /></span>
+          <span className={`sync-dot ${status}`} title={status === 'synced' ? 'Saved to the cloud' : 'Offline: saved on this phone, will upload when back online'} aria-label={status === 'synced' ? 'Synced' : 'Offline'}>{status === 'synced' ? <IconCloud size={22} /> : <IconCloudOff size={22} />}</span>
           <button type="button" className="me-btn" onClick={() => setMenu(true)} aria-label="Menu"><Sprite src={spBunny} className="spr-row" /></button>
         </div>
       </header>
@@ -91,10 +95,10 @@ function Shell() {
         <div className="menu-row">
           <span>Tap sounds</span>
           <button type="button" className={`btn btn-sm ${sound ? 'btn-green' : 'btn-soft'}`} onClick={() => { setSound(!sound); setSoundState(!sound); }} aria-pressed={sound}>
-            {sound ? <IconSound size={16} /> : <IconMute size={16} />} {sound ? 'On' : 'Off'}
+            {sound ? <IconSound size={18} /> : <IconMute size={18} />} {sound ? 'On' : 'Off'}
           </button>
         </div>
-        <button type="button" className="btn btn-soft btn-block" onClick={() => { setMenu(false); signOut(auth); }}><IconLogout size={16} /> Sign out</button>
+        <button type="button" className="btn btn-soft btn-block" onClick={() => { setMenu(false); signOut(auth); }}><IconLogout size={18} /> Sign out</button>
       </Sheet>
       <Confirm ask={confirm} onClose={() => setConfirm(null)} />
     </div>
@@ -102,5 +106,5 @@ function Shell() {
 }
 
 export default function App() {
-  return <FinanceProvider><Shell /></FinanceProvider>;
+  return <FinanceProvider><ToastProvider><Shell /></ToastProvider></FinanceProvider>;
 }

@@ -62,7 +62,6 @@ export const annualDues = (d, year) => {
   let sum = 0;
   MONTHS.forEach((m) => {
     const k = `${m}-${year}`;
-    Object.values(d.utilities[k] || {}).forEach((u) => { sum += num(u.amount); });
     (d.expenses[k] || []).forEach((e) => { sum += num(e.amount); });
     ['15th', '30th'].forEach((c) => LOAN_CATEGORIES.forEach((cat) => {
       if (d.loans[cat]) sum += rowAmounts(d.loans[cat], rowKey(year, m, c)).total;

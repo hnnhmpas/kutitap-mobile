@@ -1,5 +1,5 @@
 // Things you may want to personalise.
-export const USER_NAME = 'Hannah Mae';
+export const USER_NAME = 'Keith Dave';
 
 // Fixed utility bills shown every month on the Income & Expense tab.
 export const DEFAULT_UTILITIES = {
