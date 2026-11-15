@@ -228,3 +228,9 @@ select { -webkit-appearance: none; appearance: none; border-radius: 0; height: 4
   box-shadow: -3px 0 0 var(--ink), 3px 0 0 var(--ink), 0 -3px 0 var(--ink), 0 3px 0 var(--ink), 4px 7px 0 var(--px-shade); animation: px-toast 2.2s steps(8) forwards; }
 .toast.warn { background: var(--px-butter); color: var(--px-accent); }
 @keyframes px-toast { 0% { transform: translateY(-14px); opacity: 0; } 10% { transform: none; opacity: 1; } 85% { transform: none; opacity: 1; } 100% { transform: translateY(-8px); opacity: 0; } }
+
+/* expenses grouped by payday */
+.ex-group { display: flex; flex-direction: column; gap: 10px; }
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px; font-size: 13px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: var(--ink); }
+.group-head span:last-child { color: var(--px-accent); }
+.segment.sm { gap: 8px; } .segment.sm .seg { min-height: 36px; font-size: 13px; }

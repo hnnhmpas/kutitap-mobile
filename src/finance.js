@@ -67,7 +67,12 @@ export const yearLoanTotals = (loans, year) => {
 };
 
 // ---- income / dues ----
-export const annualIncome = (incomes, year) => MONTHS.reduce((s, m) => s + num(incomes[`${m}-${year}`]?.actual), 0);
+// income arrives twice a month: the 15th and the 30th. A month saved before this split has one amount (`actual`): it shows under the 15th until edited.
+export const incomeOf = (inc) => (inc && (inc.c15 !== undefined || inc.c30 !== undefined) ? { c15: inc.c15 ?? '', c30: inc.c30 ?? '' } : { c15: inc?.actual ?? '', c30: '' });
+export const incomeTotal = (inc) => { const i = incomeOf(inc); return num(i.c15) + num(i.c30); };
+// which payday an expense is taken from (older expenses without one count for the 15th)
+export const expCutoff = (e) => (e && e.cutoff === '30th' ? '30th' : '15th');
+export const annualIncome = (incomes, year) => MONTHS.reduce((s, m) => s + incomeTotal(incomes[`${m}-${year}`]), 0);
 export const annualDues = (d, year) => {
   let sum = 0;
   MONTHS.forEach((m) => {

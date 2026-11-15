@@ -5,7 +5,7 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { useCloudStore } from './cloud';
 import { useToast } from './components/ui';
 import { DEFAULT_UTILITIES, INITIAL_LOANS } from './config';
-import { buildGoal, reviseGoal, setGoalMonthAmount, cleanAmount, validAmount, num, newId } from './finance';
+import { buildGoal, reviseGoal, setGoalMonthAmount, cleanAmount, validAmount, num, newId, incomeOf } from './finance';
 
 const DEFAULTS = { incomes: {}, utilities: {}, expenses: {}, loans: INITIAL_LOANS, savings: [] };
 // same document keys as the original tracker, so data can be copied across if ever needed
@@ -28,7 +28,11 @@ export function FinanceProvider({ children }) {
 
   const actions = useMemo(() => ({
     // income: a single amount the user types in
-    setIncome: (mk, value) => up('incomes', (p) => ({ ...p, [mk]: { ...(p[mk] || {}), actual: cleanAmount(value) } })),
+    // income comes on the 15th and the 30th: cutoff is '15th' or '30th'. The old single `actual` amount is folded into the 15th box.
+    setIncome: (mk, cutoff, value) => {
+      const field = cutoff === '30th' ? 'c30' : 'c15';
+      return up('incomes', (p) => ({ ...p, [mk]: { ...incomeOf(p[mk]), [field]: cleanAmount(value) } }));
+    },
 
     utilitiesOf: (utilities, mk) => utilities[mk] || DEFAULT_UTILITIES,
     setUtilityAmount: (mk, name, value) => up('utilities', (p) => {
@@ -41,11 +45,11 @@ export function FinanceProvider({ children }) {
       return { ...p, [mk]: { ...month, [name]: { ...cur, paid: !cur.paid } } };
     }, true),
 
-    addExpense: (mk, category, amount) => {
+    addExpense: (mk, category, amount, cutoff = '15th') => {
       if (!validAmount(amount)) return false; // nothing is added for an empty or zero amount
-      return up('expenses', (p) => ({ ...p, [mk]: [...(p[mk] || []), { id: newId(), category: cleanName(category, 40) || 'Expense', amount: cleanAmount(amount), paid: false }] }), true);
+      return up('expenses', (p) => ({ ...p, [mk]: [...(p[mk] || []), { id: newId(), category: cleanName(category, 40) || 'Expense', amount: cleanAmount(amount), cutoff: cutoff === '30th' ? '30th' : '15th', paid: false }] }), true);
     },
-    changeExpense: (mk, id, field, value) => up('expenses', (p) => ({ ...p, [mk]: (p[mk] || []).map((e) => (e.id === id ? { ...e, [field]: field === 'amount' ? cleanAmount(value) : value } : e)) })),
+    changeExpense: (mk, id, field, value) => up('expenses', (p) => ({ ...p, [mk]: (p[mk] || []).map((e) => (e.id === id ? { ...e, [field]: field === 'amount' ? cleanAmount(value) : field === 'cutoff' ? (value === '30th' ? '30th' : '15th') : value } : e)) })),
     toggleExpensePaid: (mk, id) => up('expenses', (p) => ({ ...p, [mk]: (p[mk] || []).map((e) => (e.id === id ? { ...e, paid: !e.paid } : e)) }), true),
     deleteExpense: (mk, id) => up('expenses', (p) => ({ ...p, [mk]: (p[mk] || []).filter((e) => e.id !== id) }), true),
 

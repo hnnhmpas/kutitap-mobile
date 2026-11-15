@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useFinance } from '../store';
-import { MONTHS, monthKey, stepMonth, num, peso, cutoffSummary, cutoffDay, validAmount } from '../finance';
+import { MONTHS, monthKey, stepMonth, num, peso, cutoffSummary, cutoffDay, validAmount, incomeOf, expCutoff } from '../finance';
 import { Sprite, MonthStepper, MonthSheet, MoneyInput, PaidToggle, IconButton, Sheet, Field, useToast } from '../components/ui';
 import { IconPlus, IconTrash, IconRight } from '../icons';
 import spBunny from '../assets/pixel/bunny.png';
@@ -12,12 +12,13 @@ export default function Money({ period, setPeriod, ask, go }) {
   const [adding, setAdding] = useState(false);
   const [newCat, setNewCat] = useState('');
   const [newAmt, setNewAmt] = useState('');
+  const [newCo, setNewCo] = useState('15th');
   const [err, setErr] = useState('');
   const busy = useRef(false); // a quick double tap on Save must not add the same expense twice
 
   const mk = monthKey(period.mi, period.y);
   const month = MONTHS[period.mi];
-  const income = d.incomes[mk]?.actual ?? '';
+  const income = incomeOf(d.incomes[mk]); // { c15, c30 }
   const expenses = d.expenses[mk] || [];
 
   // loans: only what is still to pay on each cutoff (auto-synced from the Loans tab)
@@ -36,15 +37,22 @@ export default function Money({ period, setPeriod, ask, go }) {
   const exPaid = expenses.filter((e) => e.paid).length;
   const exPct = expenses.length ? Math.round((exPaid / expenses.length) * 100) : 0;
 
+  // each payday pays for its own expenses and loan cutoff; savings is a monthly amount, so it comes off the month's remaining
+  const exOf = (co) => expenses.filter((e) => expCutoff(e) === co);
+  const sumOf = (list) => list.reduce((s, e) => s + num(e.amount), 0);
+  const ex15 = sumOf(exOf('15th')), ex30 = sumOf(exOf('30th'));
+  const left15 = num(income.c15) - ex15 - c15.total;
+  const left30 = num(income.c30) - ex30 - c30.total;
   const due = exTotal + loansDue + savingsTotal;
-  const remaining = num(income) - due;
+  const remaining = left15 + left30 - savingsTotal;
+  const groups = [{ id: '15th', label: `${month.slice(0, 3)} 15`, list: exOf('15th'), sum: ex15 }, { id: '30th', label: `${month.slice(0, 3)} ${last}`, list: exOf('30th'), sum: ex30 }];
 
-  const openAdd = () => { setNewCat(''); setNewAmt(''); setErr(''); setAdding(true); };
+  const openAdd = () => { setNewCat(''); setNewAmt(''); setNewCo('15th'); setErr(''); setAdding(true); };
   const saveExpense = () => {
     if (busy.current) return;
     if (!validAmount(newAmt)) { setErr('Please enter an amount above 0.'); return; }
     busy.current = true;
-    if (d.addExpense(mk, newCat || 'Expense', newAmt)) toast('Expense Added');
+    if (d.addExpense(mk, newCat || 'Expense', newAmt, newCo)) toast('Expense Added');
     setAdding(false);
     setTimeout(() => { busy.current = false; }, 400);
   };
@@ -53,12 +61,17 @@ export default function Money({ period, setPeriod, ask, go }) {
     <div className="screen">
       <section className="panel butter">
         <MonthStepper value={period} onStep={(n) => setPeriod(stepMonth(period, n))} onOpen={() => setPick(true)} />
-        <Field label="Income this month">
-          <MoneyInput big value={income} onChange={(v) => d.setIncome(mk, v)} label={`Income for ${month} ${period.y}`} placeholder="Enter your income" />
-        </Field>
+        <div className="grid2">
+          <Field label={`Income · ${month.slice(0, 3)} 15`}><MoneyInput value={income.c15} onChange={(v) => d.setIncome(mk, '15th', v)} label={`Income on the 15th of ${month} ${period.y}`} placeholder="15th pay" /></Field>
+          <Field label={`Income · ${month.slice(0, 3)} ${last}`}><MoneyInput value={income.c30} onChange={(v) => d.setIncome(mk, '30th', v)} label={`Income on the ${last}th of ${month} ${period.y}`} placeholder="30th pay" /></Field>
+        </div>
         <div className="grid2">
           <div className="tile"><div className="tile-label">Monthly due</div><div className="tile-val pink">{peso(due)}</div><div className="tile-sub">Expenses + loans + savings</div></div>
           <div className="tile"><div className="tile-label">Remaining</div><div className={`tile-val ${remaining >= 0 ? 'green' : 'pink'}`}>{peso(remaining)}</div><div className="tile-sub">Income minus due</div></div>
+        </div>
+        <div className="grid2">
+          <div className="tile"><div className="tile-label">{month.slice(0, 3)} 15 left</div><div className={`tile-val ${left15 >= 0 ? 'green' : 'pink'}`}>{peso(left15)}</div><div className="tile-sub">After expenses + loans</div></div>
+          <div className="tile"><div className="tile-label">{month.slice(0, 3)} {last} left</div><div className={`tile-val ${left30 >= 0 ? 'green' : 'pink'}`}>{peso(left30)}</div><div className="tile-sub">After expenses + loans</div></div>
         </div>
       </section>
 
@@ -68,20 +81,30 @@ export default function Money({ period, setPeriod, ask, go }) {
       {expenses.length === 0 ? (
         <div className="panel empty"><Sprite src={spBunny} className="spr-empty" />No expenses added yet.<br />Tap “Add expense” to log one!</div>
       ) : (
-        <div className="list">
-          {expenses.map((e) => (
-            <div key={e.id} className={`row ${e.paid ? 'paid' : ''}`}>
-              <div className="row-line">
-                <input className="text-input" style={{ flex: 1, minWidth: 0 }} type="text" placeholder="Category" aria-label="Expense category" value={e.category} onChange={(ev) => d.changeExpense(mk, e.id, 'category', ev.target.value)} />
-                <IconButton label="Delete expense" tone="danger" onClick={() => ask('Delete this expense?', () => { d.deleteExpense(mk, e.id); toast('Expense Deleted'); })}><IconTrash size={18} /></IconButton>
+        groups.map((g) => (
+          <div key={g.id} className="ex-group">
+            <div className="group-head"><span>{g.label} expenses</span><span>{peso(g.sum)}</span></div>
+            {g.list.length === 0 ? <div className="note">Nothing for the {g.id} yet</div> : (
+              <div className="list">
+                {g.list.map((e) => (
+                  <div key={e.id} className={`row ${e.paid ? 'paid' : ''}`}>
+                    <div className="row-line">
+                      <input className="text-input" style={{ flex: 1, minWidth: 0 }} type="text" placeholder="Category" aria-label="Expense category" value={e.category} onChange={(ev) => d.changeExpense(mk, e.id, 'category', ev.target.value)} />
+                      <IconButton label="Delete expense" tone="danger" onClick={() => ask('Delete this expense?', () => { d.deleteExpense(mk, e.id); toast('Expense Deleted'); })}><IconTrash size={18} /></IconButton>
+                    </div>
+                    <div className="row-line">
+                      <MoneyInput value={e.amount} onChange={(v) => d.changeExpense(mk, e.id, 'amount', v)} label="Expense amount" />
+                      <PaidToggle paid={!!e.paid} onToggle={() => d.toggleExpensePaid(mk, e.id)} />
+                    </div>
+                    <div className="segment sm" role="group" aria-label="Paid on">
+                      {groups.map((o) => <button key={o.id} type="button" className={`seg ${expCutoff(e) === o.id ? 'on' : ''}`} aria-pressed={expCutoff(e) === o.id} onClick={() => d.changeExpense(mk, e.id, 'cutoff', o.id)}>{o.label}</button>)}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="row-line">
-                <MoneyInput value={e.amount} onChange={(v) => d.changeExpense(mk, e.id, 'amount', v)} label="Expense amount" />
-                <PaidToggle paid={!!e.paid} onToggle={() => d.toggleExpensePaid(mk, e.id)} />
-              </div>
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+        ))
       )}
 
       <div className="sec-label">Loan cutoffs <span className="tag">Auto-synced</span></div>
@@ -108,6 +131,11 @@ export default function Money({ period, setPeriod, ask, go }) {
         footer={<button type="button" className="btn btn-pink btn-block" onClick={saveExpense}>Save expense</button>}>
         <Field label="Category"><input className="text-input" type="text" autoFocus placeholder="e.g. Groceries" value={newCat} onChange={(e) => setNewCat(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveExpense()} /></Field>
         <Field label="Amount"><MoneyInput value={newAmt} onChange={(v) => { setNewAmt(v); setErr(''); }} label="Amount" placeholder="0" /></Field>
+        <Field label="Paid from">
+          <div className="segment" role="group" aria-label="Paid from">
+            {groups.map((o) => <button key={o.id} type="button" className={`seg ${newCo === o.id ? 'on' : ''}`} aria-pressed={newCo === o.id} onClick={() => setNewCo(o.id)}>{o.label}<small>{o.id === '15th' ? 'mid-month pay' : 'end-month pay'}</small></button>)}
+          </div>
+        </Field>
         {err && <div className="form-err" role="alert">{err}</div>}
       </Sheet>
     </div>
